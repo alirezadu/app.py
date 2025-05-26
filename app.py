@@ -1,133 +1,110 @@
+
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import random
 import subprocess
 import platform
 
-# DNS لیست اصلی
-country_dns_map = {
-    "Bangladesh": ["202.4.96.5", "202.4.96.6", "203.76.96.150"],
-    "USA": ["8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "9.9.9.9"],
-    "UAE": ["213.42.20.30", "195.229.241.222", "213.42.20.20", "185.44.64.10"],
-    "Turkey": ["193.140.100.100", "195.175.39.49", "193.255.255.2"],
-    "Russia": ["77.88.8.8", "77.88.8.1", "94.140.14.14"],
-    "France": ["80.67.169.12", "80.67.169.40", "9.9.9.9"],
-    "Spain": ["80.58.61.250", "80.58.61.254", "212.230.135.1"],
-    "Germany": ["185.12.64.1", "80.241.218.68", "94.140.14.14"],
-    "Japan": ["203.0.113.1", "8.8.8.8", "1.1.1.1"],
-    "Portugal": ["194.117.207.100", "213.228.128.4", "193.137.29.1"],
-    "Saudi Arabia": ["212.26.18.41", "212.26.18.42", "188.95.48.1"],
-    "Switzerland": ["77.109.128.2", "77.109.128.4", "185.228.168.9"],
-    "Argentina": ["200.49.130.44", "200.49.130.45", "200.51.211.7"],
-    "Brazil": ["200.160.0.8", "200.189.40.8", "8.8.8.8"],
-    "Sweden": ["194.14.192.20", "194.14.192.21", "193.180.250.210"],
-    "Canada": ["64.59.135.133", "64.59.135.135", "205.151.222.251"],
-    "Iraq": ["109.224.160.39", "185.94.172.16", "185.94.172.17"],
-    "Qatar": ["89.211.0.30", "89.211.5.9", "212.77.203.4"],
-    "Bahrain": ["193.188.97.100", "193.188.97.101", "193.188.97.102"]
+# Country-specific IP and DNS
+country_data = {
+    "UAE": {
+        "ips": ["5.125.88.1", "94.200.200.200", "185.54.160.1"],
+        "dns": ["213.42.20.20", "217.165.0.1"]
+    },
+    "Qatar": {
+        "ips": ["212.77.192.1", "89.211.120.1", "212.77.200.2"],
+        "dns": ["212.77.192.1", "89.211.120.1"]
+    },
+    "Bahrain": {
+        "ips": ["193.188.128.1", "193.188.135.10", "185.37.108.1"],
+        "dns": ["193.188.128.1", "193.188.135.10"]
+    },
+    "Turkey": {
+        "ips": ["195.175.39.49", "85.95.237.1", "88.255.193.1"],
+        "dns": ["195.175.39.39", "212.156.4.20"]
+    }
 }
 
-# کش دی‌ان‌اس استفاده‌نشده‌ها
-dns_cache = {}
-
-def get_random_unique_dns(country):
-    # اگر کش کشور خالی بود، یه کپی جدید از لیست اصلی بساز
-    if country not in dns_cache or not dns_cache[country]:
-        dns_cache[country] = country_dns_map.get(country, []).copy()
-        random.shuffle(dns_cache[country])  # ترتیب رو هم بریز به هم
-
-    # بکش بیرون و حذفش کن
-    return dns_cache[country].pop()
+def generate_key():
+    return ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=32))
 
 def get_ping(host):
-    param = "-n" if platform.system().lower() == "windows" else "-c"
-    command = ["ping", param, "1", host]
     try:
-        output = subprocess.check_output(command, universal_newlines=True)
-        for line in output.split("\n"):
-            if "time=" in line or "زمان=" in line:
-                return line.strip()
-        return "✅ Ping sent, no latency found."
-    except Exception as e:
-        return f"❌ Ping error: {e}"
+        param = "-n" if platform.system().lower() == "windows" else "-c"
+        result = subprocess.run(["ping", param, "1", host], capture_output=True, text=True)
+        for line in result.stdout.splitlines():
+            if "time=" in line:
+                return line.split("time=")[1].split()[0]
+    except:
+        return "Timeout"
+    return "Unavailable"
 
 def generate_config():
-    operator = operator_var.get()
     country = country_var.get()
-    volume = volume_entry.get()
-    days = days_entry.get()
-    users = users_var.get()
-    config_name = config_name_entry.get()
+    if country not in country_data:
+        messagebox.showerror("Error", "Please select a valid country.")
+        return
 
-    key = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=42)) + 'c='
-    address = f"10.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}"
-    selected_dns = get_random_unique_dns(country)
+    ip = random.choice(country_data[country]["ips"])
+    dns = random.choice(country_data[country]["dns"])
+    private_key = generate_key()
+    public_key = generate_key()
+    address = f"{random.randint(10, 250)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}/24"
     port = random.randint(1000, 3000)
-    ping_result = get_ping(selected_dns)
 
-    config = f"""# 🛡️ CxrolVPN Config
-# 🌍 Country: {country}
-# 📶 Operator: {operator}
-# 📦 Volume: {volume} GB
-# ⏳ Days: {days}
-# 👥 Users: {users}
-# 📡 Ping: {ping_result}
+    dns_ping = get_ping(dns)
+    server_ping = get_ping(ip)
 
-[Interface]
-PrivateKey = {key}
+    dns_label.config(text=f"DNS: {dns}   Ping: {dns_ping}")
+    server_label.config(text=f"Server IP: {ip}   Ping: {server_ping}")
+
+    profile_name = name_entry.get().strip() or "config"
+    config_text = f"""[Interface]
+PrivateKey = {private_key}
 Address = {address}
-DNS = {selected_dns}
+DNS = {dns}
 
 [Peer]
-PublicKey = {key}
+PublicKey = {public_key}
+Endpoint = {ip}:{port}
 AllowedIPs = 0.0.0.0/0
-Endpoint = {selected_dns}:{port}
-"""
+PersistentKeepalive = 25"""
 
-    with open(f"{config_name}.conf", "w") as f:
-        f.write(config)
+    with open(f"{profile_name}.conf", "w") as f:
+        f.write(config_text)
 
-    status_label.config(text=f"✅ ساخته شد: {config_name}.conf")
+    messagebox.showinfo("Success", f"Configuration saved as {profile_name}.conf")
 
-# GUI
-app = tk.Tk()
-app.title("🛡️ CxrolVPN Config Generator")
-app.configure(bg='black')
+# GUI Setup
+root = tk.Tk()
+root.title("CxrolVPN")
+root.configure(bg="#111111")
+root.geometry("500x600")
 
-style = ttk.Style()
-style.theme_use("default")
-style.configure("TLabel", background='black', foreground='red')
-style.configure("TButton", background='black', foreground='red')
-style.configure("TEntry", fieldbackground='black', foreground='red')
-style.configure("TCombobox", fieldbackground='black', foreground='red')
+tk.Label(root, text="CxrolVPN", font=("Helvetica", 24, "bold"), bg="#111111", fg="#FF0000").pack(pady=20)
 
-operator_var = tk.StringVar()
+tk.Label(root, text="Select Country", bg="#111111", fg="white").pack()
 country_var = tk.StringVar()
-users_var = tk.StringVar()
+country_combo = ttk.Combobox(root, textvariable=country_var, values=list(country_data.keys()))
+country_combo.pack(pady=5)
 
-ttk.Label(app, text="👤 Operator:").pack()
-ttk.Entry(app, textvariable=operator_var).pack()
+tk.Label(root, text="Data Volume (GB)", bg="#111111", fg="white").pack()
+volume_entry = tk.Entry(root)
+volume_entry.pack(pady=5)
 
-ttk.Label(app, text="🌍 Country:").pack()
-ttk.Combobox(app, textvariable=country_var, values=list(country_dns_map.keys())).pack()
+tk.Label(root, text="Validity (Days)", bg="#111111", fg="white").pack()
+days_entry = tk.Entry(root)
+days_entry.pack(pady=5)
 
-ttk.Label(app, text="📦 Volume (GB):").pack()
-volume_entry = ttk.Entry(app)
-volume_entry.pack()
+tk.Label(root, text="Profile Name", bg="#111111", fg="white").pack()
+name_entry = tk.Entry(root)
+name_entry.pack(pady=5)
 
-ttk.Label(app, text="⏳ Days:").pack()
-days_entry = ttk.Entry(app)
-days_entry.pack()
+dns_label = tk.Label(root, text="DNS: N/A", bg="#111111", fg="#FF4444")
+dns_label.pack(pady=5)
+server_label = tk.Label(root, text="Server IP: N/A", bg="#111111", fg="#FF4444")
+server_label.pack(pady=5)
 
-ttk.Label(app, text="👥 Users (1-6):").pack()
-ttk.Combobox(app, textvariable=users_var, values=list(range(1, 7))).pack()
+tk.Button(root, text="Generate Config", command=generate_config, bg="#FF0000", fg="white").pack(pady=10)
 
-ttk.Label(app, text="📝 Config File Name:").pack()
-config_name_entry = ttk.Entry(app)
-config_name_entry.pack()
-
-ttk.Button(app, text="🚀 Generate Config", command=generate_config).pack(pady=10)
-status_label = ttk.Label(app, text="", font=("Arial", 10, "bold"))
-status_label.pack()
-
-app.mainloop()
+root.mainloop()
