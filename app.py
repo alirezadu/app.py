@@ -1,95 +1,90 @@
+# app.py
 import streamlit as st
 import random
 import qrcode
 from PIL import Image
 from io import BytesIO
 
-st.set_page_config(page_title="Cxrol Wire-Dns", page_icon="🛡️", layout="centered")
+st.set_page_config(page_title="Cxrol Wire-DNS", layout="centered")
 
+# ---------- UI Style ----------
 st.markdown(
     """
     <style>
     body {
-        background-color: #0f0f0f;
+        background-color: #000000;
     }
     .title {
-        font-size: 50px;
-        font-family: 'Orbitron', sans-serif;
-        color: #ff0033;
-        text-align: center;
+        font-size:48px;
+        font-weight:bold;
+        text-align:center;
+        color: #ff003c;
         text-shadow: 0px 0px 10px red;
     }
-    .section-title {
-        font-size: 25px;
+    .section {
+        color: white;
+        font-size: 20px;
+    }
+    .stButton>button {
+        background-color: #ff003c;
+        color: white;
         font-weight: bold;
-        color: #ffffff;
-        margin-top: 30px;
+        border: none;
+        border-radius: 5px;
     }
     </style>
-    """,
-    unsafe_allow_html=True
+    """, unsafe_allow_html=True
 )
 
-st.markdown('<p class="title">Cxrol Wire-Dns</p>', unsafe_allow_html=True)
-
-st.markdown("### VPN Configuration Generator")
-
-# --- Form Inputs ---
-with st.form("config_form"):
-    operator = st.text_input("Operator Name")
-    country = st.selectbox("Select Country", ["UAE", "Qatar", "Bahrain", "Turkey"])
-    volume = st.text_input("Data Volume (e.g. 5GB)")
-    days = st.number_input("Valid Days", min_value=1, max_value=365)
-    users = st.slider("Number of Users", 1, 6)
-    config_name = st.text_input("Config Name")
-
-    submitted = st.form_submit_button("Generate Config")
-
-# --- DNS Mapping ---
+# ---------- DNS Data ----------
 dns_map = {
-    "UAE": ["185.93.3.123", "91.75.122.21"],
-    "Qatar": ["89.211.106.11", "89.211.106.12"],
-    "Bahrain": ["185.70.40.65", "185.70.40.66"],
-    "Turkey": ["185.15.33.10", "185.15.33.11"]
+    "UAE": ["213.42.20.30", "194.170.1.5"],
+    "Qatar": ["212.77.192.1", "212.77.128.1"],
+    "Bahrain": ["193.188.97.205", "193.188.97.203"],
+    "Turkey": ["195.175.39.39", "195.175.39.40"]
 }
 
-# --- Generate Config ---
-if submitted:
-    key = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=42)) + 'c='
-    port = random.randint(1000, 3000)
-    address = f"10.0.{random.randint(0,255)}.{random.randint(1,254)}"
-    peer = f"192.168.{random.randint(0,255)}.{random.randint(1,254)}"
+# ---------- Title ----------
+st.markdown("<div class='title'>Cxrol Wire-DNS</div>", unsafe_allow_html=True)
+st.markdown("### WireGuard Config Generator")
+
+# ---------- Form Inputs ----------
+country = st.selectbox("Select Country", list(dns_map.keys()))
+volume = st.text_input("Enter Volume (e.g. 10GB)")
+days = st.text_input("Enter Validity in Days")
+config_name = st.text_input("Config Name")
+
+# ---------- Generate Config ----------
+if st.button("Generate Config"):
+    private_key = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=42))
+    address = f"10.{random.randint(1, 254)}.{random.randint(1, 254)}.1/24"
+    endpoint = f"{random.randint(100, 250)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}:{random.randint(1000, 3000)}"
     dns = random.choice(dns_map[country])
 
-    config = f"""
-[Interface]
-PrivateKey = {key}
+    config_text = f"""[Interface]
+PrivateKey = {private_key}
 Address = {address}
 DNS = {dns}
 
 [Peer]
-PublicKey = {key}
+PublicKey = {private_key}
 AllowedIPs = 0.0.0.0/0
-Endpoint = vpn.cxrol.com:{port}
-PersistentKeepalive = 25
+Endpoint = {endpoint}
 """
+    st.code(config_text, language="bash")
+    st.success("Config generated successfully!")
 
-    st.code(config, language="ini")
-
-    # QR Code
-    qr = qrcode.make(config)
+    # ---------- QR Code ----------
+    img = qrcode.make(config_text)
     buf = BytesIO()
-    qr.save(buf)
-    buf.seek(0)
-    st.image(Image.open(buf), caption="QR Code for WireGuard Config", use_column_width=True)
+    img.save(buf)
+    st.image(buf.getvalue(), caption="Scan QR Code")
 
-    # Download Button
-    st.download_button("Download Config File", data=config, file_name=f"{config_name}.conf")
+# ---------- DNS Section ----------
+st.markdown("---")
+st.markdown("### DNS Builder")
 
-# --- DNS Section ---
-st.markdown("### DNS Generator (Based on Country)")
-
-selected_dns_country = st.selectbox("Choose Country for DNS", ["UAE", "Qatar", "Bahrain", "Turkey"])
+selected_dns_country = st.selectbox("Select Country for DNS", list(dns_map.keys()), key="dns")
 if st.button("Generate DNS"):
-    selected_dns = random.choice(dns_map[selected_dns_country])
-    st.success(f"DNS for {selected_dns_country}: `{selected_dns}`")
+    dns_result = random.choice(dns_map[selected_dns_country])
+    st.success(f"DNS for {selected_dns_country}: {dns_result}")
