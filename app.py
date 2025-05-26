@@ -1,9 +1,6 @@
 # app.py
 import streamlit as st
 import random
-import qrcode
-from PIL import Image
-from io import BytesIO
 
 st.set_page_config(page_title="Cxrol Wire-DNS", layout="centered")
 
@@ -11,9 +8,6 @@ st.set_page_config(page_title="Cxrol Wire-DNS", layout="centered")
 st.markdown(
     """
     <style>
-    body {
-        background-color: #000000;
-    }
     .title {
         font-size:48px;
         font-weight:bold;
@@ -73,12 +67,6 @@ Endpoint = {endpoint}
 """
     st.code(config_text, language="bash")
     st.success("Config generated successfully!")
-
-    # ---------- QR Code ----------
-    img = qrcode.make(config_text)
-    buf = BytesIO()
-    img.save(buf)
-    st.image(buf.getvalue(), caption="Scan QR Code")
 
 # ---------- DNS Section ----------
 st.markdown("---")
