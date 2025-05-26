@@ -1,11 +1,10 @@
 
-import tkinter as tk
-from tkinter import ttk, messagebox
+import streamlit as st
 import random
 import subprocess
 import platform
 
-# Country-specific IP and DNS
+# ---------- Data ----------
 country_data = {
     "UAE": {
         "ips": ["5.125.88.1", "94.200.200.200", "185.54.160.1"],
@@ -39,12 +38,17 @@ def get_ping(host):
         return "Timeout"
     return "Unavailable"
 
-def generate_config():
-    country = country_var.get()
-    if country not in country_data:
-        messagebox.showerror("Error", "Please select a valid country.")
-        return
+# ---------- UI ----------
+st.set_page_config(page_title="CxrolVPN", layout="centered", initial_sidebar_state="auto")
+st.markdown("<h1 style='text-align: center; color: #FF0000;'>CxrolVPN Config Generator</h1>", unsafe_allow_html=True)
+st.markdown("<hr style='border: 1px solid #FF0000;'>", unsafe_allow_html=True)
 
+country = st.selectbox("Select Country", list(country_data.keys()))
+volume = st.number_input("Data Volume (GB)", min_value=1, max_value=500, value=10)
+days = st.number_input("Validity (Days)", min_value=1, max_value=365, value=30)
+profile_name = st.text_input("Profile Name", value="CxrolVPN_Profile")
+
+if st.button("Generate Config"):
     ip = random.choice(country_data[country]["ips"])
     dns = random.choice(country_data[country]["dns"])
     private_key = generate_key()
@@ -55,10 +59,6 @@ def generate_config():
     dns_ping = get_ping(dns)
     server_ping = get_ping(ip)
 
-    dns_label.config(text=f"DNS: {dns}   Ping: {dns_ping}")
-    server_label.config(text=f"Server IP: {ip}   Ping: {server_ping}")
-
-    profile_name = name_entry.get().strip() or "config"
     config_text = f"""[Interface]
 PrivateKey = {private_key}
 Address = {address}
@@ -70,41 +70,9 @@ Endpoint = {ip}:{port}
 AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25"""
 
-    with open(f"{profile_name}.conf", "w") as f:
-        f.write(config_text)
+    st.code(config_text, language="ini")
+    st.download_button("Download Config", config_text, file_name=f"{profile_name}.conf")
 
-    messagebox.showinfo("Success", f"Configuration saved as {profile_name}.conf")
-
-# GUI Setup
-root = tk.Tk()
-root.title("CxrolVPN")
-root.configure(bg="#111111")
-root.geometry("500x600")
-
-tk.Label(root, text="CxrolVPN", font=("Helvetica", 24, "bold"), bg="#111111", fg="#FF0000").pack(pady=20)
-
-tk.Label(root, text="Select Country", bg="#111111", fg="white").pack()
-country_var = tk.StringVar()
-country_combo = ttk.Combobox(root, textvariable=country_var, values=list(country_data.keys()))
-country_combo.pack(pady=5)
-
-tk.Label(root, text="Data Volume (GB)", bg="#111111", fg="white").pack()
-volume_entry = tk.Entry(root)
-volume_entry.pack(pady=5)
-
-tk.Label(root, text="Validity (Days)", bg="#111111", fg="white").pack()
-days_entry = tk.Entry(root)
-days_entry.pack(pady=5)
-
-tk.Label(root, text="Profile Name", bg="#111111", fg="white").pack()
-name_entry = tk.Entry(root)
-name_entry.pack(pady=5)
-
-dns_label = tk.Label(root, text="DNS: N/A", bg="#111111", fg="#FF4444")
-dns_label.pack(pady=5)
-server_label = tk.Label(root, text="Server IP: N/A", bg="#111111", fg="#FF4444")
-server_label.pack(pady=5)
-
-tk.Button(root, text="Generate Config", command=generate_config, bg="#FF0000", fg="white").pack(pady=10)
-
-root.mainloop()
+    st.success("Configuration generated successfully!")
+    st.markdown(f"**Server IP**: `{ip}`  â¢  **Ping**: `{server_ping}`")
+    st.markdown(f"**DNS Used**: `{dns}`  â¢  **Ping**: `{dns_ping}`")
