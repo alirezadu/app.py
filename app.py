@@ -1,138 +1,95 @@
-import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
+import streamlit as st
 import random
 import qrcode
-from PIL import Image, ImageTk
-import os
+from PIL import Image
+from io import BytesIO
 
-# ---------- Config Generator ----------
-def generate_config():
-    operator = operator_var.get()
-    country = country_var.get()
-    volume = volume_entry.get()
-    days = days_entry.get()
-    users = users_var.get()
-    config_name = config_name_entry.get()
+st.set_page_config(page_title="Cxrol Wire-Dns", page_icon="🛡️", layout="centered")
 
-    if not config_name:
-        messagebox.showerror("Error", "Please enter a config name.")
-        return
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #0f0f0f;
+    }
+    .title {
+        font-size: 50px;
+        font-family: 'Orbitron', sans-serif;
+        color: #ff0033;
+        text-align: center;
+        text-shadow: 0px 0px 10px red;
+    }
+    .section-title {
+        font-size: 25px;
+        font-weight: bold;
+        color: #ffffff;
+        margin-top: 30px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
+st.markdown('<p class="title">Cxrol Wire-Dns</p>', unsafe_allow_html=True)
+
+st.markdown("### VPN Configuration Generator")
+
+# --- Form Inputs ---
+with st.form("config_form"):
+    operator = st.text_input("Operator Name")
+    country = st.selectbox("Select Country", ["UAE", "Qatar", "Bahrain", "Turkey"])
+    volume = st.text_input("Data Volume (e.g. 5GB)")
+    days = st.number_input("Valid Days", min_value=1, max_value=365)
+    users = st.slider("Number of Users", 1, 6)
+    config_name = st.text_input("Config Name")
+
+    submitted = st.form_submit_button("Generate Config")
+
+# --- DNS Mapping ---
+dns_map = {
+    "UAE": ["185.93.3.123", "91.75.122.21"],
+    "Qatar": ["89.211.106.11", "89.211.106.12"],
+    "Bahrain": ["185.70.40.65", "185.70.40.66"],
+    "Turkey": ["185.15.33.10", "185.15.33.11"]
+}
+
+# --- Generate Config ---
+if submitted:
     key = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=42)) + 'c='
-    address = f"{random.randint(10, 250)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}"
-    allowed_ips = "0.0.0.0/0"
     port = random.randint(1000, 3000)
+    address = f"10.0.{random.randint(0,255)}.{random.randint(1,254)}"
+    peer = f"192.168.{random.randint(0,255)}.{random.randint(1,254)}"
+    dns = random.choice(dns_map[country])
 
-    config = f"""[Interface]
+    config = f"""
+[Interface]
 PrivateKey = {key}
 Address = {address}
+DNS = {dns}
 
 [Peer]
 PublicKey = {key}
-AllowedIPs = {allowed_ips}
-Endpoint = {address}:{port}
+AllowedIPs = 0.0.0.0/0
+Endpoint = vpn.cxrol.com:{port}
 PersistentKeepalive = 25
 """
 
-    file_path = f"{config_name}.conf"
-    with open(file_path, "w") as f:
-        f.write(config)
+    st.code(config, language="ini")
 
-    # Generate QR Code
+    # QR Code
     qr = qrcode.make(config)
-    qr.save("qr_code.png")
-    qr_img = Image.open("qr_code.png").resize((150, 150))
-    qr_photo = ImageTk.PhotoImage(qr_img)
-    qr_label.config(image=qr_photo)
-    qr_label.image = qr_photo
+    buf = BytesIO()
+    qr.save(buf)
+    buf.seek(0)
+    st.image(Image.open(buf), caption="QR Code for WireGuard Config", use_column_width=True)
 
-    status_label.config(text="✅ WireGuard config generated successfully!")
+    # Download Button
+    st.download_button("Download Config File", data=config, file_name=f"{config_name}.conf")
 
-# ---------- DNS Generator ----------
-def generate_dns():
-    dns_name = dns_name_entry.get()
-    ttl = ttl_entry.get()
-    ip = f"{random.randint(10, 250)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}"
+# --- DNS Section ---
+st.markdown("### DNS Generator (Based on Country)")
 
-    if not dns_name or not ttl:
-        messagebox.showerror("Error", "Please fill in DNS name and TTL.")
-        return
-
-    dns_output = f"{dns_name} A {ip} TTL={ttl}"
-    dns_result_label.config(text=f"🔗 DNS Record:\n{dns_output}")
-
-# ---------- GUI Setup ----------
-app = tk.Tk()
-app.title("Cxrol Wire-Dns")
-app.configure(bg="#0b0b0c")
-app.geometry("500x820")
-
-# ---------- Style ----------
-style = ttk.Style()
-style.theme_use("clam")
-style.configure("TLabel", background="#0b0b0c", foreground="#e10600", font=("Courier", 11))
-style.configure("TButton", background="#e10600", foreground="white", font=("Courier", 10))
-style.configure("TEntry", fieldbackground="#1c1c1c", foreground="white")
-
-# ---------- Title ----------
-title = tk.Label(app, text="Cxrol Wire-Dns", font=("Courier New", 24, "bold"), fg="#ff1a1a", bg="#0b0b0c")
-title.pack(pady=10)
-
-# ---------- WireGuard Section ----------
-operator_var = tk.StringVar()
-country_var = tk.StringVar()
-users_var = tk.StringVar()
-
-ttk.Label(app, text="Operator:").pack()
-ttk.Entry(app, textvariable=operator_var).pack()
-
-ttk.Label(app, text="Country:").pack()
-countries = ["UAE", "Turkey", "Qatar", "Bahrain"]
-ttk.Combobox(app, textvariable=country_var, values=countries).pack()
-
-ttk.Label(app, text="Data Volume (GB):").pack()
-volume_entry = ttk.Entry(app)
-volume_entry.pack()
-
-ttk.Label(app, text="Days Valid:").pack()
-days_entry = ttk.Entry(app)
-days_entry.pack()
-
-ttk.Label(app, text="Users (1-6):").pack()
-ttk.Combobox(app, textvariable=users_var, values=list(range(1, 7))).pack()
-
-ttk.Label(app, text="Config Name:").pack()
-config_name_entry = ttk.Entry(app)
-config_name_entry.pack()
-
-ttk.Button(app, text="Generate WireGuard Config", command=generate_config).pack(pady=10)
-
-# ---------- QR Code ----------
-qr_label = tk.Label(app, bg="#0b0b0c")
-qr_label.pack(pady=10)
-
-status_label = ttk.Label(app, text="")
-status_label.pack()
-
-# ---------- DNS Section ----------
-separator = ttk.Separator(app, orient="horizontal")
-separator.pack(fill='x', pady=15)
-
-dns_title = tk.Label(app, text="DNS Builder", font=("Courier New", 18, "bold"), fg="#ff1a1a", bg="#0b0b0c")
-dns_title.pack()
-
-ttk.Label(app, text="DNS Name (e.g., dns.cxrolvpn.com):").pack()
-dns_name_entry = ttk.Entry(app)
-dns_name_entry.pack()
-
-ttk.Label(app, text="TTL (Time To Live):").pack()
-ttl_entry = ttk.Entry(app)
-ttl_entry.pack()
-
-ttk.Button(app, text="Generate DNS", command=generate_dns).pack(pady=10)
-
-dns_result_label = ttk.Label(app, text="")
-dns_result_label.pack()
-
-app.mainloop()
+selected_dns_country = st.selectbox("Choose Country for DNS", ["UAE", "Qatar", "Bahrain", "Turkey"])
+if st.button("Generate DNS"):
+    selected_dns = random.choice(dns_map[selected_dns_country])
+    st.success(f"DNS for {selected_dns_country}: `{selected_dns}`")
