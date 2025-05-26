@@ -1,78 +1,122 @@
 
-import streamlit as st
+import tkinter as tk
+from tkinter import ttk, filedialog
 import random
+import socket
+import time
 
-st.set_page_config(page_title="Cxrol Wire-DNS", layout="centered")
+# تابع ساخت کانفیگ و ذخیره
+def generate_config():
+    operator = operator_var.get()
+    country = country_var.get()
+    volume = volume_entry.get()
+    days = days_entry.get()
+    users = users_var.get()
+    config_name = config_name_entry.get()
 
-# ---------- UI Style ----------
-st.markdown(
-    """
-    <style>
-    .title {
-        font-size:48px;
-        font-weight:bold;
-        text-align:center;
-        color: #ff003c;
-        text-shadow: 0px 0px 10px red;
-    }
-    .section {
-        color: white;
-        font-size: 20px;
-    }
-    .stButton>button {
-        background-color: #ff003c;
-        color: white;
-        font-weight: bold;
-        border: none;
-        border-radius: 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True
-)
+    key = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=42)) + 'c='
+    address = f"{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}"
+    allowed_ips = f"{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}"
+    port = random.randint(1000, 3000)
 
-# ---------- DNS Data ----------
-dns_map = {
-    "UAE": ["213.42.20.30", "194.170.1.5"],
-    "Qatar": ["212.77.192.1", "212.77.128.1"],
-    "Bahrain": ["193.188.97.205", "193.188.97.203"],
-    "Turkey": ["195.175.39.39", "195.175.39.40"]
-}
-
-# ---------- Title ----------
-st.markdown("<div class='title'>Cxrol Wire-DNS</div>", unsafe_allow_html=True)
-st.markdown("### WireGuard Config Generator")
-
-# ---------- Form Inputs ----------
-country = st.selectbox("Select Country", list(dns_map.keys()))
-volume = st.text_input("Enter Volume (e.g. 10GB)")
-days = st.text_input("Enter Validity in Days")
-config_name = st.text_input("Config Name")
-
-# ---------- Generate Config ----------
-if st.button("Generate Config"):
-    private_key = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=42))
-    address = f"10.{random.randint(1, 254)}.{random.randint(1, 254)}.1/24"
-    endpoint = f"{random.randint(100, 250)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}:{random.randint(1000, 3000)}"
-    dns = random.choice(dns_map[country])
-
-    config_text = f"""[Interface]
-PrivateKey = {private_key}
+    config = f"""[Interface]
+PrivateKey = {key}
 Address = {address}
-DNS = {dns}
 
 [Peer]
-PublicKey = {private_key}
-AllowedIPs = 0.0.0.0/0
-Endpoint = {endpoint}
+PublicKey = {key}
+AllowedIPs = {allowed_ips}
+Endpoint = {address}:{port}
 """
-    st.code(config_text, language="bash")
-    st.success("Config generated successfully!")
 
-# ---------- DNS Section ----------
-st.markdown("---")
-st.markdown("### DNS Builder")
+    file_path = filedialog.asksaveasfilename(
+        initialfile=f"{config_name}.conf",
+        defaultextension=".conf",
+        filetypes=[("WireGuard Config", "*.conf")]
+    )
+    if file_path:
+        with open(file_path, "w") as f:
+            f.write(config)
+        status_label.config(text="✅ کانفیگ با موفقیت ذخیره شد!")
+    else:
+        status_label.config(text="❌ ذخیره‌سازی لغو شد.")
 
-selected_dns_country = st.selectbox("Select Country for DNS", list(dns_map.keys()), key="dns")
-if st.button("Generate DNS"):
-    dns_result = random.choice(dns_map[selected_dns_country])
-    st.success(f"DNS for {selected_dns_country}: {dns_result}")
+# تابع بررسی DNS
+def check_dns_ping():
+    dns_ip = dns_entry.get()
+    try:
+        start_time = time.time()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(2)
+        sock.sendto(b'', (dns_ip, 53))
+        sock.recvfrom(512)
+        end_time = time.time()
+        elapsed = round((end_time - start_time) * 1000, 2)
+        dns_status.config(text=f"✅ پاسخ از {dns_ip} در {elapsed} ms")
+    except Exception as e:
+        dns_status.config(text=f"❌ دسترسی به {dns_ip} ممکن نیست")
+
+# ---------- رابط گرافیکی ---------- #
+app = tk.Tk()
+app.title("CxrolWire-Dns")
+app.geometry("550x800")
+app.configure(bg='black')
+
+# استایل گیمینگ قرمز-مشکی
+style = ttk.Style()
+style.theme_use("clam")
+style.configure('.', background='black', foreground='red', font=('Arial', 10))
+style.configure('TButton', background='red', foreground='black')
+style.configure('TLabel', background='black', foreground='red')
+style.configure('TEntry', fieldbackground='black', foreground='red')
+style.configure('TCombobox', fieldbackground='black', foreground='red')
+
+# عنوان اصلی
+ttk.Label(app, text="🎮 CxrolWire-Dns", font=('Arial', 22, 'bold')).pack(pady=15)
+
+# فرم ساخت کانفیگ
+ttk.Label(app, text="👨‍💻 اپراتور:").pack()
+operator_var = tk.StringVar()
+ttk.Entry(app, textvariable=operator_var).pack(pady=3)
+
+ttk.Label(app, text="🌍 کشور:").pack()
+country_var = tk.StringVar()
+countries = ["Bangladesh", "USA", "UAE", "Turkey", "Russia", "France", "Spain", "Germany", "Japan", "Portugal", "Saudi Arabia", "Switzerland", "Argentina", "Brazil", "Sweden", "Canada", "Iraq"]
+ttk.Combobox(app, textvariable=country_var, values=countries).pack(pady=3)
+
+ttk.Label(app, text="💾 حجم کانفیگ (GB):").pack()
+volume_entry = ttk.Entry(app)
+volume_entry.pack(pady=3)
+
+ttk.Label(app, text="📅 مدت زمان (روز):").pack()
+days_entry = ttk.Entry(app)
+days_entry.pack(pady=3)
+
+ttk.Label(app, text="👥 تعداد کاربران (1-6):").pack()
+users_var = tk.StringVar()
+ttk.Combobox(app, textvariable=users_var, values=list(range(1, 7))).pack(pady=3)
+
+ttk.Label(app, text="📝 نام کانفیگ:").pack()
+config_name_entry = ttk.Entry(app)
+config_name_entry.pack(pady=3)
+
+ttk.Button(app, text="⚡ ساخت کانفیگ و دانلود", command=generate_config).pack(pady=10)
+status_label = ttk.Label(app, text="")
+status_label.pack()
+
+# جداکننده
+ttk.Label(app, text="").pack(pady=10)
+ttk.Separator(app, orient='horizontal').pack(fill='x', padx=20)
+ttk.Label(app, text="🔎 بررسی DNS Ping", font=('Arial', 14, 'bold')).pack(pady=10)
+
+# بخش بررسی DNS
+ttk.Label(app, text="🌐 آدرس سرور DNS (مثلاً 8.8.8.8):").pack()
+dns_entry = ttk.Entry(app)
+dns_entry.pack(pady=5)
+
+ttk.Button(app, text="📡 تست پینگ DNS", command=check_dns_ping).pack(pady=5)
+dns_status = ttk.Label(app, text="")
+dns_status.pack(pady=5)
+
+# شروع برنامه
+app.mainloop()
